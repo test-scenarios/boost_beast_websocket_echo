@@ -9,6 +9,7 @@ namespace project
     {
         auto ep = net::ip::tcp::endpoint(net::ip::address_v4::any(), 4321);
         acceptor_.open(ep.protocol());
+        acceptor_.set_option(net::ip::tcp::acceptor::reuse_address(true));
         acceptor_.bind(ep);
         acceptor_.listen();
     }
@@ -36,6 +37,7 @@ namespace project
         else if (ec == net::error::connection_aborted)
         {
             // this is not an error condition
+            std::cerr << "info: " << ec.message() << "\n";
             initiate_accept();
         }
         else if (ec == net::error::operation_aborted)
@@ -69,6 +71,7 @@ namespace project
     void server::handle_stop()
     {
         ec_ = net::error::operation_aborted;
+        acceptor_.cancel();
         for (auto &[ep, weak_conn] : connections_)
             if (auto conn = weak_conn.lock())
             {

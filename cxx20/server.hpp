@@ -40,13 +40,11 @@ namespace project
         void stop();
 
       private:
-        void handle_run();
+        net::awaitable<void> handle_run();
 
         void handle_stop();
 
       private:
-        void initiate_accept();
-        void handle_accept(error_code ec, net::ip::tcp::socket sock);
 
       private:
         net::ip::tcp::acceptor acceptor_;

@@ -9,12 +9,17 @@ namespace project
     {
         auto ep = net::ip::tcp::endpoint(net::ip::address_v4::any(), 4321);
         acceptor_.open(ep.protocol());
+        acceptor_.set_option(net::ip::tcp::acceptor::reuse_address(true));
         acceptor_.bind(ep);
         acceptor_.listen();
     }
 
     void server::run()
     {
+        net::co_spawn(
+            acceptor_.get_executor(),
+            [this]() -> net::awaitable< void > { co_await this->handle_run(); },
+            net::detached);
         net::dispatch(net::bind_executor(acceptor_.get_executor(), [this] { this->handle_run(); }));
     }
 
@@ -23,52 +28,33 @@ namespace project
         net::dispatch(net::bind_executor(acceptor_.get_executor(), [this] { this->handle_stop(); }));
     }
 
-    void server::handle_run()
+    net::awaitable< void > server::handle_run()
     {
-        ec_.clear();
-        initiate_accept();
+        while (!ec_)
+            try
+            {
+                auto sock = co_await acceptor_.async_accept(net::use_awaitable);
+                auto ep   = sock.remote_endpoint();
+                auto conn = std::make_shared< connection_impl >(std::move(sock));
+                // cache the connection
+                connections_[ep] = conn;
+                conn->run();
+                conn->send("Welcome to my websocket server!\n");
+                conn->send("You are visitor number " + std::to_string(connections_.size()) + "\n");
+                conn->send("You connected from " + ep.address().to_string() + ":" + std::to_string(ep.port()) + "\n");
+                conn->send("Be good!\n");
+            }
+            catch (system_error &se)
+            {
+                if (se.code() != net::error::connection_aborted)
+                    throw;
+            }
     }
 
-    void server::handle_accept(error_code ec, net::ip::tcp::socket sock)
-    {
-        if (ec_)
-            std::cout << "server is stopped. abandoning\n";
-        else if (ec == net::error::connection_aborted)
-        {
-            // this is not an error condition
-            initiate_accept();
-        }
-        else if (ec == net::error::operation_aborted)
-        {
-            // result of calling cancel() on acceptor
-        }
-        else if (ec)
-        {
-            // this is a real error
-            std::cout << "acceptor error:" << ec.message() << "\n";
-        }
-        else
-        {
-            // no error
-            auto ep   = sock.remote_endpoint();
-            auto conn = std::make_shared< connection_impl >(std::move(sock));
-            // cache the connection
-            connections_[ep] = conn;
-            conn->run();
-            conn->send("Welcome to my websocket server!\n");
-            conn->send("You are visitor number " + std::to_string(connections_.size()) + "\n");
-            conn->send("You connected from " + ep.address().to_string() + ":" + std::to_string(ep.port()) + "\n");
-            conn->send("Be good!\n");
-        }
-    }
-    void server::initiate_accept()
-    {
-        acceptor_.async_accept(
-            [this](error_code ec, net::ip::tcp::socket sock) { this->handle_accept(ec, std::move(sock)); });
-    }
     void server::handle_stop()
     {
         ec_ = net::error::operation_aborted;
+        acceptor_.cancel();
         for (auto &[ep, weak_conn] : connections_)
             if (auto conn = weak_conn.lock())
             {
