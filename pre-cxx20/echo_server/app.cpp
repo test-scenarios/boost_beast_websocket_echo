@@ -14,6 +14,8 @@ namespace project {
         });
 
         server_.run();
+
+        console_
     }
 
     void app::run() {
