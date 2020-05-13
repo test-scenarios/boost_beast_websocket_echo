@@ -10,5 +10,6 @@ namespace project
     namespace http = beast::http;
     namespace websocket = beast::websocket;
     using error_code = beast::error_code;
+    using system_error = beast::system_error;
 
 }

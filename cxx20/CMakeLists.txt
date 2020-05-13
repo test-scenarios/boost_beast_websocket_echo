@@ -1,6 +1,6 @@
 
-project(PreCxx20)
+project(Cxx20)
 
-add_executable(pre-cxx20 main.cpp app.cpp connection.cpp server.cpp)
-target_link_libraries(pre-cxx20 PUBLIC Boost::system)
+add_executable(cxx20 main.cpp app.cpp connection.cpp server.cpp)
+target_link_libraries(cxx20 PUBLIC Boost::system)
 

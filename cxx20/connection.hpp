@@ -21,22 +21,14 @@ namespace project
         void send(std::string msg);
 
       private:
-        void handle_run();
+        net::awaitable<void> handle_run();
         void handle_stop();
 
-        void handle_accept(error_code ec);
-
-        void initiate_rx();
-        void handle_rx(error_code ec, std::size_t bytes_transferred);
-
-        void maybe_send_next();
-        void initiate_tx();
-        void handle_tx(error_code ec);
+        void initiate_send();
+        net::awaitable<void> maybe_send_next();
 
       private:
         stream stream_;
-
-        beast::flat_buffer rxbuffer_;
 
         // elements in a std deque have a stable address, so this means we don't need t make copies of messages
         std::queue< std::string, std::deque< std::string > > tx_queue_;

@@ -11,31 +11,57 @@ namespace project
 
     void connection_impl::run()
     {
-        net::dispatch(stream_.get_executor(), [self = this->shared_from_this()] { self->handle_run(); });
+        net::co_spawn(
+            stream_.get_executor(),
+            [self = this->shared_from_this()]() -> net::awaitable< void > {
+                try
+                {
+                    co_await self->handle_run();
+                }
+                catch (system_error &se)
+                {
+                    auto code = se.code();
+                    if (code == net::error::operation_aborted || code == websocket::error::closed)
+                    {
+                        // fine
+                    }
+                    else
+                    {
+                        std::cout << "connection error: " << code.message() << "\n";
+                    }
+                }
+                catch (std::exception &e)
+                {
+                    std::cout << "connection error: " << e.what() << "\n";
+                }
+            },
+            net::detached);
     }
 
-    void connection_impl::handle_run()
+    net::awaitable< void > connection_impl::handle_run()
     {
-        stream_.async_accept([self = this->shared_from_this()](error_code ec) { self->handle_accept(ec); });
-    }
-    void connection_impl::handle_accept(error_code ec)
-    {
+        co_await stream_.async_accept(net::use_awaitable);
+        // handle the case where we were stopped before this coroutine completed
         if (ec_)
+            co_return;
+
+        state_ = chatting;
+        initiate_send();
+
+        beast::flat_buffer rxbuffer;
+        while (1)
         {
-            // we've been stopped
-        }
-        else if (ec)
-        {
-            // connection error
-        }
-        else
-        {
-            // happy days
-            state_ = chatting;
-            initiate_rx();
-            maybe_send_next();
+            auto bytes   = co_await stream_.async_read(rxbuffer, net::use_awaitable);
+            auto message = beast::buffers_to_string(rxbuffer.data());
+            std::cout << " received: " << message << "\n";
+            rxbuffer.consume(message.size());
+
+            // in this case we are merely going to echo the message back.
+            // but we'll use the public interface in order to demonstrate it
+            send(std::move(message));
         }
     }
+
     void connection_impl::stop()
     {
         net::dispatch(net::bind_executor(stream_.get_executor(), [self = shared_from_this()] { self->handle_stop(); }));
@@ -56,71 +82,40 @@ namespace project
         else
             stream_.next_layer().cancel();
     }
-    void connection_impl::initiate_rx()
-    {
-        assert(state_ == chatting);
-        assert(!ec_);
-        stream_.async_read(rxbuffer_, [self = this->shared_from_this()](error_code ec, std::size_t bytes_transferred) {
-            self->handle_rx(ec, bytes_transferred);
-        });
-    }
-    void connection_impl::handle_rx(error_code ec, std::size_t bytes_transferred)
-    {
-        if (ec)
-        {
-            std::cout << "rx error: " << ec.message() << std::endl;
-        }
-        else
-        {
-            // handle the read here
-            auto message = beast::buffers_to_string(rxbuffer_.data());
-            std::cout << " received: " << message << "\n";
-            rxbuffer_.consume(message.size());
 
-            // keep reading until error
-            initiate_rx();
-
-            // in this case we are merely going to echo the message back.
-            // but we'll use the public interface in order to demonstrate it
-            send(std::move(message));
-        }
-    }
     void connection_impl::send(std::string msg)
     {
-        net::dispatch(
-            net::bind_executor(stream_.get_executor(), [self = shared_from_this(), msg = std::move(msg)]() mutable {
-                self->tx_queue_.push(std::move(msg));
-                self->maybe_send_next();
-            }));
+        net::dispatch(net::bind_executor(stream_.get_executor(), [self=shared_from_this(), msg = std::move(msg)]() mutable{
+            self->tx_queue_.push(std::move(msg));
+            self->initiate_send();
+        }));
     }
-    void connection_impl::maybe_send_next()
-    {
-        if (ec_ ||  state_ != chatting || sending_state_ == sending || tx_queue_.empty())
-            return;
 
-        initiate_tx();
-    }
-    void connection_impl::initiate_tx()
+    void connection_impl::initiate_send()
     {
-        assert(sending_state_ == send_idle);
-        assert(!ec_);
-        assert(!tx_queue_.empty());
+        net::co_spawn(
+            stream_.get_executor(),
+            [self = shared_from_this()]() -> net::awaitable< void > {
+                try
+                {
+                    co_await self->maybe_send_next();
+                }
+                catch (...)
+                {
+                }
+            },
+            net::detached);
+    }
 
-        stream_.async_write(net::buffer(tx_queue_.front()), [self = shared_from_this()](error_code ec, std::size_t) {
-            // we don't care about bytes_transferred
-            self->handle_tx(ec);
-        });
-    }
-    void connection_impl::handle_tx(error_code ec)
+    net::awaitable< void > connection_impl::maybe_send_next()
     {
-        if (ec)
+        while (!ec_ && state_ == chatting && sending_state_ != sending && !tx_queue_.empty())
         {
-            std::cout << "failed to send message: " << tx_queue_.front() << " because " << ec.message() << std::endl;
-        }
-        else
-        {
+            sending_state_ = sending;
+            co_await stream_.async_write(net::buffer(tx_queue_.front()), net::use_awaitable);
             tx_queue_.pop();
-            maybe_send_next();
+            sending_state_ = send_idle;
         }
+        co_return;
     }
 }   // namespace project
