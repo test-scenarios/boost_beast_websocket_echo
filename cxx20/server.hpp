@@ -4,8 +4,6 @@
 #include "connection.hpp"
 
 #include <boost/functional/hash.hpp>
-#include <unordered_map>
-
 
 namespace project
 {
