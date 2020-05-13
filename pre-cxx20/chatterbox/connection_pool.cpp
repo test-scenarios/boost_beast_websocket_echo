@@ -5,41 +5,30 @@
 namespace project
 {
     connection_pool::connection_pool(net::executor exec)
-    : acceptor_(exec)
+    : timer_(exec)
     {
-        auto ep = net::ip::tcp::endpoint(net::ip::address_v4::any(), 4321);
-        acceptor_.open(ep.protocol());
-        acceptor_.set_option(net::ip::tcp::acceptor::reuse_address(true));
-        acceptor_.bind(ep);
-        acceptor_.listen();
     }
 
     void connection_pool::run()
     {
-        net::dispatch(net::bind_executor(acceptor_.get_executor(), [this] { this->handle_run(); }));
+        net::dispatch(net::bind_executor(timer_.get_executor(), [this] { this->handle_run(); }));
     }
 
     void connection_pool::stop()
     {
-        net::dispatch(net::bind_executor(acceptor_.get_executor(), [this] { this->handle_stop(); }));
+        net::dispatch(net::bind_executor(timer_.get_executor(), [this] { this->handle_stop(); }));
     }
 
     void connection_pool::handle_run()
     {
         ec_.clear();
-        initiate_accept();
+        another_connection();
     }
 
-    void connection_pool::handle_accept(error_code ec, net::ip::tcp::socket sock)
+    void connection_pool::handle_timer(error_code ec)
     {
         if (ec_)
             std::cout << "server is stopped. abandoning\n";
-        else if (ec == net::error::connection_aborted)
-        {
-            // this is not an error condition
-            std::cerr << "info: " << ec.message() << "\n";
-            initiate_accept();
-        }
         else if (ec == net::error::operation_aborted)
         {
             // result of calling cancel() on acceptor
@@ -47,31 +36,26 @@ namespace project
         else if (ec)
         {
             // this is a real error
-            std::cout << "acceptor error:" << ec.message() << "\n";
+            std::cout << "timer error:" << ec.message() << "\n";
         }
         else
         {
-            // no error
-            auto ep   = sock.remote_endpoint();
-            auto conn = std::make_shared< connection_impl >(std::move(sock));
-            // cache the connection
-            connections_[ep] = conn;
-            conn->run();
-            conn->send("Welcome to my websocket server!\n");
-            conn->send("You are visitor number " + std::to_string(connections_.size()) + "\n");
-            conn->send("You connected from " + ep.address().to_string() + ":" + std::to_string(ep.port()) + "\n");
-            conn->send("Be good!\n");
+            another_connection();
         }
     }
-    void connection_pool::initiate_accept()
+    void connection_pool::initiate_timer()
     {
-        acceptor_.async_accept(
-            [this](error_code ec, net::ip::tcp::socket sock) { this->handle_accept(ec, std::move(sock)); });
+        if (!ec_ && connections_.size() < 100)
+        {
+            timer_.expires_after(std::chrono::seconds(1));
+            timer_.async_wait(
+                net::bind_executor(timer_.get_executor(), [this](error_code ec) { this->handle_timer(ec); }));
+        }
     }
     void connection_pool::handle_stop()
     {
         ec_ = net::error::operation_aborted;
-        acceptor_.cancel();
+        timer_.cancel();
         for (auto &[ep, weak_conn] : connections_)
             if (auto conn = weak_conn.lock())
             {
@@ -79,5 +63,11 @@ namespace project
                 conn->stop();
             }
         connections_.clear();
+    }
+
+    void connection_pool::another_connection() {
+        auto con = std::make_shared<connection_impl>(net::make_strand(timer_.get_executor()));
+        con->run();
+        connections_[con->local_endpoint()] = con;
     }
 }   // namespace project

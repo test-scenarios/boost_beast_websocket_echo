@@ -46,11 +46,12 @@ namespace project
         void handle_stop();
 
       private:
-        void initiate_accept();
-        void handle_accept(error_code ec, net::ip::tcp::socket sock);
+        void initiate_timer();
+        void handle_timer(error_code ec);
+        void another_connection();
 
       private:
-        net::ip::tcp::acceptor acceptor_;
+        net::system_timer timer_;
         std::unordered_map< net::ip::tcp::endpoint, std::weak_ptr< connection_impl >, endpoint_hasher, std::equal_to<> >
                    connections_;
         error_code ec_;

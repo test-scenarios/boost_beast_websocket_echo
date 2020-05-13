@@ -13,7 +13,11 @@ namespace project
         using transport = net::ip::tcp::socket;
         using stream    = websocket::stream< transport >;
 
-        connection_impl(net::ip::tcp::socket sock);
+        connection_impl(net::executor exec);
+
+        auto local_endpoint() -> net::ip::tcp::endpoint;
+
+        auto get_executor() -> net::executor;
 
         void run();
         void stop();
@@ -24,7 +28,12 @@ namespace project
         void handle_run();
         void handle_stop();
 
-        void handle_accept(error_code ec);
+        void handle_connect(error_code ec);
+        void initiate_handshake();
+        void handle_handshake(error_code ec);
+
+        void initiate_delay();
+        void handle_delay(error_code ec);
 
         void initiate_rx();
         void handle_rx(error_code ec, std::size_t bytes_transferred);
@@ -35,6 +44,7 @@ namespace project
 
       private:
         stream stream_;
+        net::system_timer delay_timer_;
 
         beast::flat_buffer rxbuffer_;
 

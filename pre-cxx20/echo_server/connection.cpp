@@ -106,6 +106,7 @@ namespace project
         assert(!ec_);
         assert(!tx_queue_.empty());
 
+        sending_state_ = sending;
         stream_.async_write(net::buffer(tx_queue_.front()), [self = shared_from_this()](error_code ec, std::size_t) {
             // we don't care about bytes_transferred
             self->handle_tx(ec);
@@ -120,6 +121,7 @@ namespace project
         else
         {
             tx_queue_.pop();
+            sending_state_ = send_idle;
             maybe_send_next();
         }
     }

@@ -85,7 +85,7 @@ namespace project
     template < class CompletionToken >
     auto console::async_run(CompletionToken &&token)
     {
-        return async_initiate< CompletionToken, void(error_code, console_event) >(
+        return asio::async_initiate< CompletionToken, void(error_code, console_event) >(
             [&](auto &&handler) {
                 assert(!this->run_op_);
                 using handler_type = std::decay_t< decltype(handler) >;

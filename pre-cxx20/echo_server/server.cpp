@@ -52,6 +52,8 @@ namespace project
         else
         {
             // no error
+            initiate_accept();
+
             auto ep   = sock.remote_endpoint();
             auto conn = std::make_shared< connection_impl >(std::move(sock));
             // cache the connection

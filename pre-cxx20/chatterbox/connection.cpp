@@ -4,10 +4,25 @@
 
 namespace project
 {
-    connection_impl::connection_impl(net::ip::tcp::socket sock)
-    : stream_(std::move(sock))
+    namespace
     {
+        const auto server_endpoint = net::ip::tcp::endpoint(net::ip::address_v4::loopback(), 4321);
     }
+
+    connection_impl::connection_impl(net::executor exec)
+    : stream_(net::ip::tcp::socket(exec))
+    , delay_timer_(exec)
+    {
+        auto ep = net::ip::tcp::endpoint(net::ip::address_v4::any(), 0);
+        stream_.next_layer().open(ep.protocol());
+
+        // this is so the socket will actually have a local endpoint
+        stream_.next_layer().bind(ep);
+    }
+
+    auto connection_impl::get_executor() -> net::executor { return stream_.get_executor(); }
+
+    auto connection_impl::local_endpoint() -> net::ip::tcp::endpoint { return stream_.next_layer().local_endpoint(); }
 
     void connection_impl::run()
     {
@@ -16,9 +31,30 @@ namespace project
 
     void connection_impl::handle_run()
     {
-        stream_.async_accept([self = this->shared_from_this()](error_code ec) { self->handle_accept(ec); });
+        stream_.next_layer().async_connect(
+            server_endpoint,
+            net::bind_executor(get_executor(), [self = shared_from_this()](error_code ec) {
+                self->handle_connect(ec);
+            }));
     }
-    void connection_impl::handle_accept(error_code ec)
+
+    void connection_impl::handle_connect(error_code ec)
+    {
+        if (!ec)
+        {
+            initiate_handshake();
+        }
+    }
+
+    void connection_impl::initiate_handshake()
+    {
+        stream_.async_handshake(
+            "localhost", "/", net::bind_executor(stream_.get_executor(), [self = shared_from_this()](error_code ec) {
+                self->handle_handshake(ec);
+            }));
+    }
+
+    void connection_impl::handle_handshake(error_code ec)
     {
         if (ec_)
         {
@@ -36,6 +72,7 @@ namespace project
             maybe_send_next();
         }
     }
+
     void connection_impl::stop()
     {
         net::dispatch(net::bind_executor(stream_.get_executor(), [self = shared_from_this()] { self->handle_stop(); }));
@@ -74,7 +111,7 @@ namespace project
         {
             // handle the read here
             auto message = beast::buffers_to_string(rxbuffer_.data());
-            std::cout << " received: " << message << "\n";
+            std::cout << local_endpoint() << " received: " << message << "\n";
             rxbuffer_.consume(message.size());
 
             // keep reading until error
@@ -88,14 +125,14 @@ namespace project
     void connection_impl::send(std::string msg)
     {
         net::dispatch(
-            net::bind_executor(stream_.get_executor(), [self = shared_from_this(), msg = std::move(msg)]() mutable {
+            net::bind_executor(get_executor(), [self = shared_from_this(), msg = std::move(msg)]() mutable {
                 self->tx_queue_.push(std::move(msg));
                 self->maybe_send_next();
             }));
     }
     void connection_impl::maybe_send_next()
     {
-        if (ec_ ||  state_ != chatting || sending_state_ == sending || tx_queue_.empty())
+        if (ec_ || state_ != chatting || sending_state_ == sending || tx_queue_.empty())
             return;
 
         initiate_tx();
@@ -106,6 +143,7 @@ namespace project
         assert(!ec_);
         assert(!tx_queue_.empty());
 
+        sending_state_ = sending;
         stream_.async_write(net::buffer(tx_queue_.front()), [self = shared_from_this()](error_code ec, std::size_t) {
             // we don't care about bytes_transferred
             self->handle_tx(ec);
@@ -120,6 +158,7 @@ namespace project
         else
         {
             tx_queue_.pop();
+            sending_state_ = send_idle;
             maybe_send_next();
         }
     }
