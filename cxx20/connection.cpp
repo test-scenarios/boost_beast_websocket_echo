@@ -85,10 +85,19 @@ namespace project
 
     void connection_impl::send(std::string msg)
     {
-        net::dispatch(net::bind_executor(stream_.get_executor(), [self=shared_from_this(), msg = std::move(msg)]() mutable{
-            self->tx_queue_.push(std::move(msg));
-            self->initiate_send();
-        }));
+        net::co_spawn(
+            stream_.get_executor(),
+            [self = shared_from_this(), msg = std::move(msg)]() mutable -> net::awaitable< void > {
+                try
+                {
+                    self->tx_queue_.push(std::move(msg));
+                    co_await self->maybe_send_next();
+                }
+                catch (...)
+                {
+                }
+            },
+            net::detached);
     }
 
     void connection_impl::initiate_send()
