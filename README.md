@@ -49,7 +49,7 @@ explain why things are done the way they are.
 
 # Common Misconceptions
 
-##Completion Handler
+## Completion Handler
 
 Many people think that _Completion Handler_ means callback. 
 
@@ -67,9 +67,9 @@ completion handler, or
 * The executor associated with the current coroutine (the one you specified in the 
 call to `asio::co_spawn` if you supplied the `asio::use_awaitable` 
 _Completion Token_, or
-* Totally irrelevant if you supplied the _Completion Token_ `asio::use_future`, or
+* Totally irrelevant if you supplied the _Completion Token_ `asio::use_future`
 
-##Completion Token
+## Completion Token
 
 You might be tempted to think that a _Completion Token_ means the same thing as a
 _Completion Handler_. 
@@ -83,7 +83,7 @@ A Completion Token describes to Asio how to rewrite the _Initiating Function_ in
 to:
 * Ensure that the asynchronous operation is initiated correctly. 
 * ensure that the correct _Completion Handler_ is manufactured.
-* Ensure that the correct type is returned to the user
+* Ensure that the correct type is returned to the user.
 
 For example, the Completion Handler produced by the Completion Token `asio::use_awaitable`,
 actually invokes code to resume the current coroutine.
@@ -100,7 +100,7 @@ the `std::future` you received as a result of calling, say:
 Right. Because if you supply an Completion Handler where a Completion Token is specified
 in the documents, a minimal transformation on your handler is made, to ensure that:
 * The initiating function returns `void`
-* the supplied lambda will be _invoked_ through the io object's _default excecutor_ 
+* the supplied lambda will be _invoked_ through the io object's _default excecutor_ - once.
 
 Examples:
 
@@ -136,7 +136,7 @@ async_wait(t, [](error_code ec){
 });
 ```
 
-#Contributing
+# Contributing
 
 You are welcome to contribute a PR. If it brings new dependencies, please make sure 
 they build properly using CMake FetchContent. User experience of this repo should be
