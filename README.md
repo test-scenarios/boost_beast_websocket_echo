@@ -47,9 +47,9 @@ and make things happen. I expect since you're here, you do too.
 This is why this repository exists. To provide annotated examples which hopefully 
 explain why things are done the way they are.
 
-### Common Misconceptions
+# Common Misconceptions
 
-####Completion Handler
+##Completion Handler
 
 Many people think that _Completion Handler_ means callback. 
 
@@ -69,7 +69,7 @@ call to `asio::co_spawn` if you supplied the `asio::use_awaitable`
 _Completion Token_, or
 * Totally irrelevant if you supplied the _Completion Token_ `asio::use_future`, or
 
-####Completion Token
+##Completion Token
 
 You might be tempted to think that a _Completion Token_ means the same thing as a
 _Completion Handler_. 
@@ -136,13 +136,13 @@ async_wait(t, [](error_code ec){
 });
 ```
 
-###Contributing
+#Contributing
 
 You are welcome to contribute a PR. If it brings new dependencies, please make sure 
 they build properly using CMake FetchContent. User experience of this repo should be
 as trouble-free as possible.
 
-### Commenting and Raising Issues
+# Commenting and Raising Issues
 
 Please feel free to comment and raise issues or contact me in slack once the procedure
 below has been followed.
@@ -150,7 +150,7 @@ below has been followed.
 Issues raised over code layout or style issues that do not affect program correctness
 or efficiency will simply be ignored and closed.
 
-### Getting Help
+# Getting Help
 
 Here is the procedure for getting help:
 
@@ -173,7 +173,7 @@ End
 the `#beast` channel and politely as a question there. Expect to be flamed if the answer
 is in the docs.
 
-### Social Responsibility Policy
+# Social Responsibility Policy
 
 I'm not a socially reponsible person. Why I'm allowed out by myself it is a mystery to
 me. If you feel insulted or triggered by anything I say to you, you should probably
@@ -183,11 +183,11 @@ make me laugh, I may even respect you.
 In code, there is correct (program functions) and there is wrong (program does not 
 function, or functions by luck). Your feelings are irrelevant.
 
-### Environmental Responsibility Policy
+# Environmental Responsibility Policy
 
 If you are cruel to animals or engaged in activities that reduce the natural beauty
 of the World, then we probably won't get on. I'd keep that quiet if I were you, or
 better yet, change your ways and become a good person.
  
- ###Footnotes
+# Footnotes
  <span id="1">¹</span> Americans might use the word 'comforter' here...[⏎](#a1)<br>
