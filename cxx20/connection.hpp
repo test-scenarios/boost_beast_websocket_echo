@@ -1,50 +1,64 @@
 #pragma once
 
 #include "config.hpp"
+#include "states.hpp"
 
 #include <deque>
+#include <iostream>
 #include <memory>
 #include <queue>
 
 namespace project
 {
-    struct connection_impl : std::enable_shared_from_this< connection_impl >
+    struct connection_impl
+    : chat_state< net::ip::tcp::socket >
+    , std::enable_shared_from_this< connection_impl >
     {
-        using transport = net::ip::tcp::socket;
-        using stream    = websocket::stream< transport >;
-
         connection_impl(net::ip::tcp::socket sock);
 
+        //
+        // external events
+        //
+
+        /// Run the chat implementation until completion
         void run();
+
+        /// Gracefully stop the chat implementation
         void stop();
 
+        /// Queue a message to be sent at the earliest opportunity
         void send(std::string msg);
 
       private:
-        net::awaitable<void> handle_run();
-        void handle_stop();
-
-        void initiate_send();
-        net::awaitable<void> maybe_send_next();
-
-      private:
-        stream stream_;
-
-        // elements in a std deque have a stable address, so this means we don't need t make copies of messages
-        std::queue< std::string, std::deque< std::string > > tx_queue_;
-
-        error_code ec_;
-
-        enum
+        /// Construct a completion handler for any coroutine running in this implementation
+        ///
+        /// Functions:
+        /// - maintain a live shared_ptr to this implementation in order to sustain its lifetime
+        /// - catch and log any exceptions that occur during the execution of the coroutine
+        /// \param context a refernce to _static string data_ whose lifetime must outlive the lifetime of the
+        /// function object returned by this function.
+        /// \return a function object to be used as the 3rd argument to net::co_spawn
+        auto spawn_handler(std::string_view context)
         {
-            handshaking,
-            chatting,
-        } state_ = handshaking;
-
-        enum
-        {
-            send_idle,
-            sending
-        } sending_state_ = send_idle;
+            return [self = shared_from_this(), context](std::exception_ptr ep) {
+                try
+                {
+                    if (ep)
+                        std::rethrow_exception(ep);
+                    std::cout << context << ": done\n";
+                }
+                catch (system_error &se)
+                {
+                    if (se.code() != net::error::operation_aborted and se.code() != websocket::error::closed)
+                        std::cout << context << ": error in " << context << " : " << se.what() << std::endl;
+                    else
+                        std::cout << context << ": graceful shutdown\n";
+                }
+                catch (std::exception &e)
+                {
+                    std::cout << "error in " << context << " : " << e.what() << std::endl;
+                }
+            };
+        }
     };
 }   // namespace project

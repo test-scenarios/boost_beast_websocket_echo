@@ -20,7 +20,6 @@ namespace project
             acceptor_.get_executor(),
             [this]() -> net::awaitable< void > { co_await this->handle_run(); },
             net::detached);
-        net::dispatch(net::bind_executor(acceptor_.get_executor(), [this] { this->handle_run(); }));
     }
 
     void server::stop()

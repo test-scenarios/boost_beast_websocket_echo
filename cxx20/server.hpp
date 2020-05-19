@@ -40,12 +40,11 @@ namespace project
         void stop();
 
       private:
-        net::awaitable<void> handle_run();
+        net::awaitable< void > handle_run();
 
         void handle_stop();
 
       private:
-
       private:
         net::ip::tcp::acceptor acceptor_;
         std::unordered_map< net::ip::tcp::endpoint, std::weak_ptr< connection_impl >, endpoint_hasher, std::equal_to<> >
