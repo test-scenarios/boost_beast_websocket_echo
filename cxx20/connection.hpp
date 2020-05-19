@@ -21,24 +21,31 @@ namespace project
         //
 
         /// Run the chat implementation until completion
-        void run();
+        void
+        run();
 
         /// Gracefully stop the chat implementation
-        void stop();
+        void
+        stop();
 
         /// Queue a message to be sent at the earliest opportunity
-        void send(std::string msg);
+        void
+        send(std::string msg);
 
       private:
-        /// Construct a completion handler for any coroutine running in this implementation
+        /// Construct a completion handler for any coroutine running in this
+        /// implementation
         ///
         /// Functions:
-        /// - maintain a live shared_ptr to this implementation in order to sustain its lifetime
-        /// - catch and log any exceptions that occur during the execution of the coroutine
-        /// \param context a refernce to _static string data_ whose lifetime must outlive the lifetime of the
-        /// function object returned by this function.
-        /// \return a function object to be used as the 3rd argument to net::co_spawn
-        auto spawn_handler(std::string_view context)
+        /// - maintain a live shared_ptr to this implementation in order to
+        /// sustain its lifetime
+        /// - catch and log any exceptions that occur during the execution of
+        /// the coroutine \param context a refernce to _static string data_
+        /// whose lifetime must outlive the lifetime of the function object
+        /// returned by this function. \return a function object to be used as
+        /// the 3rd argument to net::co_spawn
+        auto
+        spawn_handler(std::string_view context)
         {
             return [self = shared_from_this(), context](std::exception_ptr ep) {
                 try
@@ -49,14 +56,21 @@ namespace project
                 }
                 catch (system_error &se)
                 {
-                    if (se.code() != net::error::operation_aborted and se.code() != websocket::error::closed)
-                        std::cout << context << ": error in " << context << " : " << se.what() << std::endl;
+                    if (se.code() != net::error::operation_aborted &&
+                        se.code() != websocket::error::closed)
+                    {
+                        std::cout << context << ": error in " << context
+                                  << " : " << se.what() << std::endl;
+                    }
                     else
+                    {
                         std::cout << context << ": graceful shutdown\n";
+                    }
                 }
                 catch (std::exception &e)
                 {
-                    std::cout << "error in " << context << " : " << e.what() << std::endl;
+                    std::cout << "error in " << context << " : " << e.what()
+                              << std::endl;
                 }
             };
         }
