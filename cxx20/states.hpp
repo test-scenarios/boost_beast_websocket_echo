@@ -5,6 +5,7 @@
 #include <iostream>
 #include <queue>
 #include <string_view>
+#include "async_queue.hpp"
 
 namespace project
 {
@@ -43,6 +44,8 @@ namespace project
     /// initial_state It maintains a message transmit buffer
     struct chat_tx_state
     {
+        async_queue<std::string> txqueue;
+
         std::queue< std::string, std::deque< std::string > > tx_queue;
 
         enum
