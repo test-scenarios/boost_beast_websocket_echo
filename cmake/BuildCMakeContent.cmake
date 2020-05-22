@@ -5,6 +5,9 @@ else()
 endif()
 
 function(BuildCMakeContent bcc_NAME bcc_PACKAGE)
+    if (NOT deps_prefix)
+        set(deps_prefix ${CMAKE_BINARY_DIR}/dependencies/install)
+    endif()
     cmake_parse_arguments(bcc
             "" # options
             "" #<one_value_keywords>
@@ -17,16 +20,17 @@ function(BuildCMakeContent bcc_NAME bcc_PACKAGE)
         message(FATAL_ERROR "BuildDependency: requires package")
     endif()
 
-    string(TOUPPER $bcc_NAME bcc_NAME_UPPER)
+    string(TOUPPER "${bcc_NAME}" bcc_NAME_UPPER)
     set("FETCHCONTENT_UPDATES_DISCONNECTED_${bcc_NAME_UPPER}" ON CACHE BOOL "Whether to check for updates" FORCE)
 
 
     message(STATUS "[dependencies] fetching properties for ${bcc_NAME}")
     FetchContent_GetProperties("${bcc_NAME}")
     if (NOT "${${bcc_NAME}_POPULATED}")
+        message(STATUS "[dependencies] Populating ${bcc_NAME} in ${${bcc_NAME}_SOURCE_DIR}")
         FetchContent_Populate(${bcc_NAME})
         FetchContent_GetProperties("${bcc_NAME}")
-        message(STATUS "[dependencies] Populating ${bcc_NAME} in ${bcc_NAME}_SOURCE_DIR")
+        message(STATUS "[dependencies] Populating ${bcc_NAME} in ${${bcc_NAME}_SOURCE_DIR}")
     endif()
 
     #

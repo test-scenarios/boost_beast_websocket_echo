@@ -18,8 +18,8 @@ namespace project
         auto on_connect = [this]() {
             net::co_spawn(
                 get_executor(),
-                [this]() -> net::awaitable< void > { co_await run_state(tx_state, stream, ec); },
-                spawn_handler("on_connect"));
+                [this]() -> net::awaitable< void > { co_await dequeue_send(txqueue, stream); },
+                spawn_handler("tx_state"));
         };
 
         // callback which will happen zero or more times, as each message is received.
@@ -44,10 +44,8 @@ namespace project
 
     void connection_impl::send(std::string msg)
     {
-        net::co_spawn(
-            get_executor(),
-            [this, msg = std::move(msg)]() mutable -> net::awaitable< void > { co_await notify_send(std::move(msg)); },
-            spawn_handler("send"));
+        // this will "happen" on the correct executor
+        txqueue.push(std::move(msg));
     }
 
 }   // namespace project

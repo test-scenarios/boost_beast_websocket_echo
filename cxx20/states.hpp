@@ -1,11 +1,11 @@
 #pragma once
 #include "config.hpp"
+#include "util/async_queue.hpp"
 
 #include <deque>
 #include <iostream>
 #include <queue>
 #include <string_view>
-#include "async_queue.hpp"
 
 namespace project
 {
@@ -22,9 +22,9 @@ namespace project
     try
     {
         beast::flat_buffer rxbuffer;
-        while (1)
+        for (;;)
         {
-            auto bytes   = co_await s.async_read(rxbuffer, net::use_awaitable);
+            auto bytes   = co_await s.async_read(rxbuffer);
             auto message = beast::buffers_to_string(rxbuffer.data());
             std::cout << " received: " << message << "\n";
             rxbuffer.consume(message.size());
@@ -38,58 +38,20 @@ namespace project
                       << r.code << std::endl;
     }
 
-    /// Transmit state (orthogonal region)
+    /// Run the transmit state until the tx queue is stopped
     ///
-    /// The transmit state cycles through the states initial_state -> sending ->
-    /// initial_state It maintains a message transmit buffer
-    struct chat_tx_state
-    {
-        async_queue<std::string> txqueue;
-
-        std::queue< std::string, std::deque< std::string > > tx_queue;
-
-        enum
-        {
-            initial_state,
-            sending,
-            exit_state
-        } state = initial_state;
-    };
-
-    /// Run the transmit state unless it's already running
-    ///
-    /// This coroutine will:
-    /// - detect whether there is already a transmit state in progress
-    /// - if not,
-    /// -   enter sending state
-    /// -   flush all pending message to the stream unless there is a transport
-    /// error or signalled to stop via the passed error_code reference
-    /// -   revert to initial_state
-    /// \tparam Transport
-    /// \param state
-    /// \param stream
-    /// \param ec
-    /// \return
-    template < class Transport >
+    template < class QueueExecutor, class Transport >
     net::awaitable< void >
-    run_state(chat_tx_state &                 state,
-              websocket::stream< Transport > &stream,
-              error_code &                    ec)
-    try
+    dequeue_send(
+        beast_fun_times::util::basic_async_queue< std::string, QueueExecutor >
+            &                           txqueue,
+        websocket::stream< Transport > &stream)
     {
-        while (!ec && state.state == chat_tx_state::initial_state &&
-               !state.tx_queue.empty())
+        for (;;)
         {
-            state.state = chat_tx_state::sending;
-            co_await stream.async_write(net::buffer(state.tx_queue.front()),
-                                        net::use_awaitable);
-            state.tx_queue.pop();
-            state.state = chat_tx_state::initial_state;
+            co_await stream.async_write(
+                net::buffer(co_await txqueue.async_pop()));
         }
-    }
-    catch(...)
-    {
-        state.state = chat_tx_state::exit_state;
     }
 
     /// Chat state data that does not depend on transport type
@@ -103,9 +65,6 @@ namespace project
             chatting,
             exit_state,
         } state = initial_state;
-
-        // substates
-        chat_tx_state tx_state;
     };
 
     /// Chat state data dependent on underlying transport (and therefore
@@ -113,11 +72,15 @@ namespace project
     template < class Transport >
     struct chat_state : chat_state_base
     {
-        using executor_type = typename Transport::executor_type;
-        using stream_type   = websocket::stream< Transport >;
+        using executor_type       = typename Transport::executor_type;
+        using transport_template  = Transport;
+        using awaitable_transport = typename net::use_awaitable_t<
+            executor_type >::template as_default_on_t< transport_template >;
+        using stream_type = websocket::stream< awaitable_transport >;
 
         chat_state(Transport t)
         : stream(std::move(t))
+        , txqueue(get_executor())
         {
         }
 
@@ -143,8 +106,10 @@ namespace project
                     break;
                 case chat_state_base::handshaking:
                     stream.next_layer().cancel();
+                    txqueue.stop();
                     break;
                 case chat_state_base::chatting:
+                    txqueue.stop();
                     co_await stream.async_close(
                         websocket::close_reason("shutting down"),
                         net::use_awaitable);
@@ -155,27 +120,16 @@ namespace project
             }
         }
 
-        /// Coroutine which notifies the state that there is a new "transmit
-        /// message" event
-        net::awaitable< void >
-        notify_send(std::string message)
-        {
-            tx_state.tx_queue.push(std::move(message));
-            switch (state)
-            {
-            case chat_state_base::initial_state:
-                break;
-            case chat_state_base::handshaking:
-                break;
-            case chat_state_base::chatting:
-                co_await run_state(tx_state, stream, ec);
-                break;
-            case chat_state_base::exit_state:
-                break;
-            }
-        }
-
         stream_type stream;
+
+        // substates
+
+        using queue_template =
+            beast_fun_times::util::basic_async_queue< std::string,
+                                                      executor_type >;
+        using txqueue_t = typename net::use_awaitable_t<
+            executor_type >::template as_default_on_t< queue_template >;
+        txqueue_t txqueue;
     };
 
     /// Coroutine which runs the chat state
@@ -195,7 +149,7 @@ namespace project
     {
         assert(state.state == chat_state_base::initial_state);
         state.state = chat_state_base::handshaking;
-        co_await state.stream.async_accept(net::use_awaitable);
+        co_await state.stream.async_accept();
         if (state.ec)
             throw system_error(state.ec);
 
