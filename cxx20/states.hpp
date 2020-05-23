@@ -38,31 +38,19 @@ namespace project
                       << r.code << std::endl;
     }
 
-    /// Transmit state (orthogonal region)
-    ///
-    /// The transmit state cycles through the states initial_state -> sending ->
-    /// initial_state It maintains a message transmit buffer
-    struct chat_tx_state
-    {
-        chat_tx_state(net::executor exec)
-        : txqueue(exec)
-        {
-        }
-
-        beast_fun_times::util::async_queue< std::string > txqueue;
-    };
-
     /// Run the transmit state until the tx queue is stopped
     ///
-    template < class Transport >
+    template < class QueueExecutor, class Transport >
     net::awaitable< void >
-    run_state(chat_tx_state &state, websocket::stream< Transport > &stream)
+    dequeue_send(
+        beast_fun_times::util::basic_async_queue< std::string, QueueExecutor >
+            &                           txqueue,
+        websocket::stream< Transport > &stream)
     {
         for (;;)
         {
             co_await stream.async_write(
-                net::buffer(
-                    co_await state.txqueue.async_pop(net::use_awaitable)),
+                net::buffer(co_await txqueue.async_pop()),
                 net::use_awaitable);
         }
     }
@@ -78,7 +66,6 @@ namespace project
             chatting,
             exit_state,
         } state = initial_state;
-
     };
 
     /// Chat state data dependent on underlying transport (and therefore
@@ -91,7 +78,7 @@ namespace project
 
         chat_state(Transport t)
         : stream(std::move(t))
-        , tx_state(get_executor())
+        , txqueue(get_executor())
         {
         }
 
@@ -117,10 +104,10 @@ namespace project
                     break;
                 case chat_state_base::handshaking:
                     stream.next_layer().cancel();
-                    tx_state.txqueue.stop();
+                    txqueue.stop();
                     break;
                 case chat_state_base::chatting:
-                    tx_state.txqueue.stop();
+                    txqueue.stop();
                     co_await stream.async_close(
                         websocket::close_reason("shutting down"),
                         net::use_awaitable);
@@ -131,31 +118,16 @@ namespace project
             }
         }
 
-        /// Coroutine which notifies the state that there is a new "transmit
-        /// message" event
-        net::awaitable< void >
-        notify_send(std::string message)
-        {
-            tx_state.txqueue.push(std::move(message));
-            switch (state)
-            {
-            case chat_state_base::initial_state:
-                break;
-            case chat_state_base::handshaking:
-                break;
-            case chat_state_base::chatting:
-                co_await run_state(tx_state, stream, ec);
-                break;
-            case chat_state_base::exit_state:
-                break;
-            }
-        }
-
         stream_type stream;
 
         // substates
-        chat_tx_state tx_state;
 
+        using queue_template =
+            beast_fun_times::util::basic_async_queue< std::string,
+                                                      executor_type >;
+        using txqueue_t = typename net::use_awaitable_t<
+            executor_type >::template as_default_on_t< queue_template >;
+        txqueue_t txqueue;
     };
 
     /// Coroutine which runs the chat state

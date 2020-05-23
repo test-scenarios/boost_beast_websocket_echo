@@ -18,7 +18,7 @@ namespace project
         auto on_connect = [this]() {
             net::co_spawn(
                 get_executor(),
-                [this]() -> net::awaitable< void > { co_await run_state(tx_state, stream); },
+                [this]() -> net::awaitable< void > { co_await dequeue_send(txqueue, stream); },
                 spawn_handler("tx_state"));
         };
 
@@ -45,7 +45,7 @@ namespace project
     void connection_impl::send(std::string msg)
     {
         // this will "happen" on the correct executor
-        tx_state.txqueue.push(std::move(msg));
+        txqueue.push(std::move(msg));
     }
 
 }   // namespace project

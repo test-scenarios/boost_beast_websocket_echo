@@ -10,8 +10,16 @@
 
 namespace project
 {
+    struct connection_traits
+    {
+        using base_executor_type = net::io_context::executor_type;
+        using coro_executor_type = net::use_awaitable_t<base_executor_type>::executor_with_default<base_executor_type>;
+        using socket_type = net::basic_stream_socket<net::ip::tcp, coro_executor_type>;
+
+    };
+
     struct connection_impl
-    : chat_state< net::ip::tcp::socket >
+    : chat_state< net::ip::tcp::socket>
     , std::enable_shared_from_this< connection_impl >
     {
         connection_impl(net::ip::tcp::socket sock);
