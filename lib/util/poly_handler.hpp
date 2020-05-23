@@ -15,7 +15,7 @@ namespace beast_fun_times::util
             {
             }
 
-            void *                             short_[4];
+            void *                             short_[6];
             std::unique_ptr< unsigned char[] > long_;
         };
 
@@ -156,8 +156,8 @@ namespace beast_fun_times::util
                 * = nullptr >
         poly_handler(Actual actual)
         {
-            using actual_type = Actual;
-            if constexpr (sizeof(actual_type) > sizeof(storage_))
+            constexpr auto size = sizeof(Actual);
+            if constexpr (size > sizeof(storage_))
             {
                 // non-sbo
                 auto kind = detail::
