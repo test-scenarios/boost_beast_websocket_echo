@@ -35,16 +35,34 @@ if (ENABLE_TESTING)
             "-DCATCH_BUILD_TESTING=OFF"
             "-DCATCH_INSTALL_DOCS=OFF"
             "-DCATCH_INSTALL_HELPERS=OFF")
-
+    find_package(Catch2 CONFIG)
 endif ()
+
+FetchContent_Declare(fmtlib
+        GIT_REPOSITORY git@github.com:fmtlib/fmt.git
+        GIT_TAG 7.0.3)
+BuildCmakeContent(fmtlib fmt
+    CMAKE_ARGS
+        "-DFMT_TEST=OFF"
+        "-DFMT_DOC=OFF")
+
+FetchContent_Declare(nlohmann_jsonlib
+        GIT_REPOSITORY git@github.com:nlohmann/json.git
+        GIT_TAG v3.9.1)
+BuildCmakeContent(nlohmann_jsonlib nlohmann_json
+    CMAKE_ARGS
+        "-DJSON_BuildTests=OFF"
+        "-DJSON_Install=ON")
 
 add_compile_definitions(
         "BOOST_ASIO_NO_DEPRECATED=1"
         "BOOST_ASIO_DISABLE_CONCEPTS=1")
 
-find_package(Boost REQUIRED COMPONENTS system thread)
+find_package(Boost CONFIG REQUIRED COMPONENTS system thread)
 find_package(Threads)
-find_package(Catch2)
+find_package(fmt CONFIG)
+find_package(nlohmann_json CONFIG)
+find_package(OpenSSL)
 
 add_subdirectory(lib)
 

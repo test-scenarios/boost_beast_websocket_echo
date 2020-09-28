@@ -1,2 +1,3 @@
 add_subdirectory(chatterbox)
 add_subdirectory(echo_server)
+add_subdirectory(fmex_client)
