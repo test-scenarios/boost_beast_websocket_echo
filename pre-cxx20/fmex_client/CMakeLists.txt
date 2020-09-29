@@ -1,6 +1,7 @@
 project(pre_cxx20_fmex_client)
 
-add_executable(pre_cxx20_fmex_client main.cpp)
+file(GLOB_RECURSE src_files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS "*.cpp" "*.hpp")
+add_executable(pre_cxx20_fmex_client ${src_files})
 target_link_libraries(pre_cxx20_fmex_client
     PUBLIC
         Boost::system
