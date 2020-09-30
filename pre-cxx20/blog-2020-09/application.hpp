@@ -1,3 +1,4 @@
+#include "fmex_connection.hpp"
 #include "net.hpp"
 #include "sigint_state.hpp"
 #include "ssl.hpp"
@@ -20,8 +21,9 @@ namespace project
         auto
         get_executor() const -> executor_type const &;
 
-        executor_type exec_;
-        ssl::context &ssl_ctx_;
-        sigint_state  sigint_state_;
+        executor_type   exec_;
+        ssl::context &  ssl_ctx_;
+        sigint_state    sigint_state_;
+        fmex_connection fmex_connection_;
     };
 }   // namespace project
