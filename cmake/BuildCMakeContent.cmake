@@ -37,8 +37,11 @@ function(BuildCMakeContent bcc_NAME bcc_PACKAGE)
     # configure step
     #
 
-    set(bcc_configure_options
-            "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
+    set(bcc_configure_options)
+    if (CMAKE_TOOLCHAIN_FILE)
+        list(APPEND bcc_configure_options "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
+    endif()
+    list(APPEND bcc_configure_options
             "-DCMAKE_INSTALL_PREFIX=${deps_prefix}"
             "-DCMAKE_PREFIX_PATH=${deps_prefix}"
             ${bcc_CMAKE_ARGS}

@@ -21,6 +21,7 @@ if (NOT DEFINED BOOST_ROOT)
     #    RequireBoost(PREFIX ${CMAKE_CURRENT_BINARY_DIR}/dependencies/install VERSION 1.73.0 COMPONENTS system)
     RequireBoost(PREFIX "${CMAKE_CURRENT_BINARY_DIR}/dependencies/install/boost-${FUN_TIMES_BOOST_VERSION}" VERSION "${FUN_TIMES_BOOST_VERSION}"
             COMPONENTS
+            container
             system
             thread)
 else()
@@ -54,6 +55,17 @@ BuildCmakeContent(nlohmann_jsonlib nlohmann_json
         "-DJSON_BuildTests=OFF"
         "-DJSON_Install=ON")
 
+FetchContent_Declare(boost_json_lib
+        GIT_REPOSITORY git@github.com:CPPAlliance/json.git
+        GIT_TAG 0da206074fbee99877ae82bb73afbc567e19a7b6)
+BuildCmakeContent(boost_json_lib boost_json
+        CMAKE_ARGS
+        "-DBOOST_JSON_STANDALONE=OFF"
+        "-DBOOST_JSON_BUILD_TESTS=OFF"
+        "-DBOOST_JSON_BUILD_FUZZERS=OFF"
+        "-DBOOST_JSON_BUILD_EXAMPLES=OFF"
+        "-DBOOST_JSON_BUILD_BENCHMARKS=OFF")
+
 add_compile_definitions(
         "BOOST_ASIO_NO_DEPRECATED=1"
         "BOOST_ASIO_DISABLE_CONCEPTS=1")
@@ -63,6 +75,7 @@ find_package(Threads)
 find_package(fmt CONFIG)
 find_package(nlohmann_json CONFIG)
 find_package(OpenSSL)
+find_package(boost_json)
 
 add_subdirectory(lib)
 
