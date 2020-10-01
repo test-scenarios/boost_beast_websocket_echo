@@ -1,4 +1,5 @@
 #include "wss_transport.hpp"
+
 #include <fmt/printf.h>
 
 namespace project
@@ -30,10 +31,14 @@ namespace project
             }
         });
     }
+
     void
     wss_transport::stop()
     {
-        // to be continued
+        net::dispatch(get_executor(), [this] {
+            if (auto sig = boost::exchange(stop_signal_, nullptr))
+                sig();
+        });
     }
 
     struct wss_transport::connect_op : asio::coroutine
@@ -73,11 +78,15 @@ namespace project
             std::string                          host, port, target;
         };
 
-        connect_op(websock &   ws,
-                   std::string host,
-                   std::string port,
-                   std::string target)
-        : impl_(std::make_unique< impl_data >(ws, host, port, target))
+        connect_op(wss_transport *transport,
+                   std::string    host,
+                   std::string    port,
+                   std::string    target)
+        : transport_(transport)
+        , impl_(std::make_unique< impl_data >(transport->websock_,
+                                              host,
+                                              port,
+                                              target))
         {
         }
 
@@ -102,19 +111,30 @@ namespace project
         void operator()(Self &self, error_code ec = {}, std::size_t = 0)
         {
             if (ec)
-                self.complete(ec);
+                return self.complete(ec);
 
             auto &impl = *impl_;
 
 #include <boost/asio/yield.hpp>
             reenter(*this)
             {
+                transport_->stop_signal_ = [&resolver = impl.resolver] {
+                    resolver.cancel();
+                };
                 yield impl.resolver.async_resolve(
                     impl.host, impl.port, std::move(self));
+
+                //
+
+                transport_->stop_signal_ = [&sock = impl.tcp_layer()] {
+                    sock.cancel();
+                };
 
                 impl.tcp_layer().expires_after(15s);
                 yield impl.tcp_layer().async_connect(impl.endpoints,
                                                      std::move(self));
+
+                //
 
                 if (!SSL_set_tlsext_host_name(impl.ssl_layer().native_handle(),
                                               impl.host.c_str()))
@@ -122,20 +142,28 @@ namespace project
                         error_code(static_cast< int >(::ERR_get_error()),
                                    net::error::get_ssl_category()));
 
+                //
+
                 impl.tcp_layer().expires_after(15s);
                 yield impl.ssl_layer().async_handshake(ssl::stream_base::client,
                                                        std::move(self));
+
+                //
 
                 impl.tcp_layer().expires_after(15s);
                 yield impl.ws.async_handshake(
                     impl.host, impl.target, std::move(self));
 
+                //
+
+                transport_->stop_signal_ = nullptr;
                 impl.tcp_layer().expires_never();
                 yield self.complete(ec);
             }
 #include <boost/asio/unyield.hpp>
         }
 
+        wss_transport *              transport_;
         std::unique_ptr< impl_data > impl_;
     };
 
@@ -167,7 +195,7 @@ namespace project
 
         net::async_compose< decltype(handler), void(error_code) >(
             connect_op(
-                websock_, std::move(host), std::move(port), std::move(target)),
+                this, std::move(host), std::move(port), std::move(target)),
             handler,
             get_executor());
     }
@@ -185,6 +213,19 @@ namespace project
     void
     wss_transport::initiate_close()
     {
+        fmt::print(stdout, "closing websocket\n");
+        stop_signal_ = nullptr;
+        state_       = closing;
+        websock_.async_close(websocket::close_code::going_away,
+                             [this](error_code const &ec) {
+                                 if (ec)
+                                     event_transport_error(ec);
+                                 else
+                                 {
+                                     state_ = finished;
+                                     on_close();
+                                 }
+                             });
     }
 
     void
@@ -221,7 +262,8 @@ namespace project
     void
     wss_transport::event_transport_up()
     {
-        state_ = connected;
+        state_       = connected;
+        stop_signal_ = [this] { initiate_close(); };
         on_transport_up();
         start_sending();
         start_reading();
@@ -280,8 +322,14 @@ namespace project
     void
     wss_transport::start_reading()
     {
-        if (state_ != connected)
+        switch (state_)
+        {
+        case connected:
+        case closing:
+            break;
+        default:
             return;
+        }
 
         websock_.async_read(rx_buffer_,
                             [this](error_code const &ec, std::size_t bt) {

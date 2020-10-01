@@ -107,5 +107,8 @@ namespace project
         // internal details
 
         struct connect_op;
+
+        // stop signal
+        std::function<void()> stop_signal_;
     };
 }   // namespace project

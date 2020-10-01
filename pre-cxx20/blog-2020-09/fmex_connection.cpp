@@ -39,6 +39,7 @@ namespace project
     void
     fmex_connection::on_transport_error(std::exception_ptr ep)
     {
+        ping_timer_.cancel();
         try
         {
             std::rethrow_exception(ep);
