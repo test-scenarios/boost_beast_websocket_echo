@@ -62,6 +62,19 @@ namespace project
         on_close();
 
       private:
+
+        void event_transport_up();
+
+        void event_transport_error(error_code const& ec);
+        void event_transport_error(std::exception_ptr ep);
+
+        void start_sending();
+        void handle_send(error_code const& ec, std::size_t bytes_transferred);
+        void start_reading();
+        void handle_read(error_code const& ec, std::size_t bytes_transferred);
+
+      private:
+
         using layer_0 = beast::tcp_stream;
         using layer_1 = beast::ssl_stream< layer_0 >;
         using websock = websocket::stream< layer_1 >;
@@ -76,7 +89,7 @@ namespace project
         {
             not_sending,
             sending
-        };
+        } send_state_ = not_sending;
 
         // overall state of this transport
 
@@ -88,5 +101,11 @@ namespace project
             closing,
             finished
         } state_ = not_started;
+
+        beast::flat_buffer rx_buffer_;
+
+        // internal details
+
+        struct connect_op;
     };
 }   // namespace project

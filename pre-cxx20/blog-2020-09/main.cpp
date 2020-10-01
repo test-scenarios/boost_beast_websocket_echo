@@ -9,7 +9,9 @@ main()
     using namespace project;
 
     auto ioc     = net::io_context();
-    auto ssl_ctx = ssl::context(ssl::context::sslv3_client);
+    auto ssl_ctx = ssl::context(ssl::context::tlsv12_client);
+    ssl_ctx.set_default_verify_paths();
+    ssl_ctx.set_verify_mode(ssl::context::verify_peer);
 
     try
     {
