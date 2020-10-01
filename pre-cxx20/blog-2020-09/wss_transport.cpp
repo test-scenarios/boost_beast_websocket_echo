@@ -76,6 +76,7 @@ namespace project
             net::ip::tcp::resolver               resolver;
             net::ip::tcp::resolver::results_type endpoints;
             std::string                          host, port, target;
+            error_code                           error = {};
         };
 
         connect_op(wss_transport *transport,
@@ -110,24 +111,29 @@ namespace project
         template < class Self >
         void operator()(Self &self, error_code ec = {}, std::size_t = 0)
         {
-            if (ec)
-                return self.complete(ec);
-
             auto &impl = *impl_;
+
+            if(ec)
+                impl.error = ec;
+
+            if (impl.error)
+                return self.complete(impl.error);
 
 #include <boost/asio/yield.hpp>
             reenter(*this)
             {
-                transport_->stop_signal_ = [&resolver = impl.resolver] {
-                    resolver.cancel();
+                transport_->stop_signal_ = [&impl] {
+                    impl.resolver.cancel();
+                    impl.error = net::error::operation_aborted;
                 };
                 yield impl.resolver.async_resolve(
                     impl.host, impl.port, std::move(self));
 
                 //
 
-                transport_->stop_signal_ = [&sock = impl.tcp_layer()] {
-                    sock.cancel();
+                transport_->stop_signal_ = [&impl] {
+                    impl.tcp_layer().cancel();
+                    impl.error = net::error::operation_aborted;
                 };
 
                 impl.tcp_layer().expires_after(15s);
@@ -158,7 +164,7 @@ namespace project
 
                 transport_->stop_signal_ = nullptr;
                 impl.tcp_layer().expires_never();
-                yield self.complete(ec);
+                yield self.complete(impl.error);
             }
 #include <boost/asio/unyield.hpp>
         }

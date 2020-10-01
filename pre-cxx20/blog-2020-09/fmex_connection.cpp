@@ -93,6 +93,7 @@ namespace project
     void
     fmex_connection::on_close()
     {
+        ping_timer_.cancel();
         fmt::print(stdout, "fmex: closed\n");
     }
 
