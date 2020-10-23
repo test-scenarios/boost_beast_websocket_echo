@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 if (NOT DEFINED FUN_TIMES_BOOST_VERSION)
-    set(FUN_TIMES_BOOST_VERSION "1.73.0" CACHE STRING "Boost Version")
+    set(FUN_TIMES_BOOST_VERSION "1.74.0" CACHE STRING "Boost Version")
 endif ()
 
 include(FetchContent)
@@ -47,6 +47,17 @@ BuildCmakeContent(fmtlib fmt
         "-DFMT_TEST=OFF"
         "-DFMT_DOC=OFF")
 
+FetchContent_Declare(spdlog
+        GIT_REPOSITORY  https://github.com/gabime/spdlog.git
+        GIT_TAG v1.8.1)
+BuildCMakeContent(spdlog spdlog
+        CMAKE_ARGS
+        -DSPDLOG_BUILD_EXAMPLE=OFF
+        -DSPDLOG_BUILD_TESTS=OFF
+        -DSPDLOG_INSTALL=ON
+        -DSPDLOG_FMT_EXTERNAL=ON)
+
+
 FetchContent_Declare(nlohmann_jsonlib
         GIT_REPOSITORY git@github.com:nlohmann/json.git
         GIT_TAG v3.9.1)
@@ -73,6 +84,7 @@ add_compile_definitions(
 find_package(Boost CONFIG REQUIRED COMPONENTS system thread)
 find_package(Threads)
 find_package(fmt CONFIG)
+find_package(spdlog CONFIG)
 find_package(nlohmann_json CONFIG)
 find_package(OpenSSL)
 find_package(boost_json)
