@@ -150,26 +150,13 @@ test(beast::string_view sample)
         // now we want to scan the input looking for the boundary
         //
 
-        bool first_part          = true;
-        bool expect_chunk_header = true;
-
-        auto on_chunk_body =
-            [&](std::uint64_t remain, beast::string_view body, error_code &ec) {
-                auto pos = outbuf.size();
-                auto len = body.size();
-                outbuf.grow(len);
-                net::buffer_copy(outbuf.data(pos, len),
-                                 net::buffer(body.data(), len));
-                expect_chunk_header = (remain == 0);
-                return len;
-            };
-        parser.on_chunk_body(on_chunk_body);
+        bool first_part = true;
 
         auto        boundary_pos = std::string::size_type(0);
         std::string boundary_line;
 
     next_boundary:
-        for(;;)
+        for (;;)
         {
             boundary_line = "--" + *boundary + "\r\n";
             boundary_pos  = work_store.find(boundary_line);
@@ -180,20 +167,9 @@ test(beast::string_view sample)
             }
 
             // found boundary
-            if(boundary_pos < work_store.size())
+            if (boundary_pos < work_store.size())
                 break;
 
-            if (parser.chunked())
-            {
-                while (expect_chunk_header)
-                {
-                    http::async_read_some(local, rxbuf, parser, handler);
-                    spin("skipping chunk header");
-                }
-                http::async_read_some(local, rxbuf, parser, handler);
-                spin("seeking boundary");
-            }
-            else
             {
                 outbuf.grow(512);
                 auto dat = outbuf.data(outbuf.size() - 512, outbuf.size());
@@ -206,7 +182,6 @@ test(beast::string_view sample)
             }
             quit_check();
         }
-
         if (!first_part)
         {
             // process the previous part
@@ -227,17 +202,6 @@ test(beast::string_view sample)
         auto hdr_pos = work_store.find("\r\n");
         if (hdr_pos == std::string::npos)
         {
-            if (parser.chunked())
-            {
-                while (expect_chunk_header)
-                {
-                    http::async_read_some(local, rxbuf, parser, handler);
-                    spin("skipping chunk header");
-                }
-                http::async_read_some(local, rxbuf, parser, handler);
-                spin("seeking boundary header");
-            }
-            else
             {
                 outbuf.grow(512);
                 auto dat = outbuf.data(outbuf.size() - 512, outbuf.size());
