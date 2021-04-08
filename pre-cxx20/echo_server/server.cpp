@@ -7,6 +7,7 @@ server::server(net::executor exec)
 : acceptor_(exec)
 {
     auto ep = net::ip::tcp::endpoint(net::ip::address_v4::any(), 4321);
+    std::cout << "websocket chat server listening on " << ep << "\n";
     acceptor_.open(ep.protocol());
     acceptor_.set_option(net::ip::tcp::acceptor::reuse_address(true));
     acceptor_.bind(ep);
