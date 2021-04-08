@@ -3,8 +3,13 @@
 #include <iostream>
 
 namespace project {
+
+using namespace std::literals;
+
 connection_impl::connection_impl(net::ip::tcp::socket sock)
 : stream_(std::move(sock))
+, session_timer_(stream_.get_executor())
+, time_remaining_(30s)
 {
 }
 
@@ -21,6 +26,8 @@ connection_impl::handle_run()
     stream_.async_accept([self = this->shared_from_this()](error_code ec) {
         self->handle_accept(ec);
     });
+
+    initiate_timer();
 }
 void
 connection_impl::handle_accept(error_code ec)
@@ -51,24 +58,33 @@ connection_impl::stop()
 }
 
 void
-connection_impl::handle_stop()
+connection_impl::handle_stop(websocket::close_reason reason)
 {
     // we set an error code in order to handle the crossing case where the
     // accept has completed but its handler has not yet been sceduled for
     // invoacation
     ec_ = net::error::operation_aborted;
 
-    if (state_ == chatting)
-        stream_.async_close(websocket::close_code::going_away,
-                            [self = shared_from_this()](error_code ec) {
-                                // very important that we captured self here!
-                                // the websocket stream must stay alive while
-                                // there is an outstanding async op
-                                std::cout << "result of close: " << ec.message()
-                                          << std::endl;
-                            });
-    else
-        stream_.next_layer().cancel();
+    session_timer_.cancel();
+
+    if (state_ == handshaking)
+    {
+        error_code ec;
+        stream_.next_layer().close(ec);
+    }
+    else if (state_ == chatting)
+    {
+        stream_.async_close(reason, [self = shared_from_this()](error_code ec) {
+            // very important that we captured self here!
+            // the websocket stream must stay alive while
+            // there is an outstanding async op
+            std::cout << "result of close: " << ec.message() << std::endl;
+        });
+    }
+    else if (state_ == closing)
+    {
+    }
+    state_ = closing;
 }
 void
 connection_impl::initiate_rx()
@@ -109,10 +125,17 @@ connection_impl::send(std::string msg)
     net::dispatch(net::bind_executor(
         stream_.get_executor(),
         [self = shared_from_this(), msg = std::move(msg)]() mutable {
-            self->tx_queue_.push(std::move(msg));
-            self->maybe_send_next();
+            self->handle_send(std::move(msg));
         }));
 }
+
+void
+connection_impl::handle_send(std::string msg)
+{
+    tx_queue_.push(std::move(msg));
+    maybe_send_next();
+}
+
 void
 connection_impl::maybe_send_next()
 {
@@ -152,4 +175,37 @@ connection_impl::handle_tx(error_code ec)
         maybe_send_next();
     }
 }
+
+void
+connection_impl::initiate_timer()
+{
+    assert(time_remaining_.count());
+    auto delta = std::min(time_remaining_, 5s);
+    time_remaining_ -= delta;
+    session_timer_.expires_after(delta);
+    session_timer_.async_wait(
+        [self = shared_from_this()](error_code const &ec) {
+            if (!ec)
+                self->handle_timer();
+        });
+}
+
+void
+connection_impl::handle_timer()
+{
+    if (ec_)
+        return;
+
+    if (time_remaining_.count())
+    {
+        std::ostringstream ss;
+        ss << time_remaining_.count() << " seconds remaining";
+        handle_send(ss.str());
+        initiate_timer();
+    }
+    else
+        handle_stop(websocket::close_reason(websocket::close_code::going_away,
+                                            "session timed out"));
+}
+
 }   // namespace project

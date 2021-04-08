@@ -7,6 +7,7 @@
 #include <queue>
 
 namespace project {
+
 struct connection_impl : std::enable_shared_from_this< connection_impl >
 {
     using transport = net::ip::tcp::socket;
@@ -16,6 +17,7 @@ struct connection_impl : std::enable_shared_from_this< connection_impl >
 
     void
     run();
+
     void
     stop();
 
@@ -25,26 +27,43 @@ struct connection_impl : std::enable_shared_from_this< connection_impl >
   private:
     void
     handle_run();
+
     void
-    handle_stop();
+    handle_stop(
+        websocket::close_reason reason = websocket::close_code::going_away);
 
     void
     handle_accept(error_code ec);
 
     void
     initiate_rx();
+
     void
     handle_rx(error_code ec, std::size_t bytes_transferred);
 
     void
+    initiate_timer();
+
+    void
+    handle_timer();
+
+    void
+    handle_send(std::string s);
+
+    void
     maybe_send_next();
+
     void
     initiate_tx();
+
     void
     handle_tx(error_code ec);
 
   private:
-    stream stream_;
+    stream            stream_;
+    net::steady_timer session_timer_;
+
+    std::chrono::seconds time_remaining_;
 
     beast::flat_buffer rxbuffer_;
 
@@ -58,6 +77,7 @@ struct connection_impl : std::enable_shared_from_this< connection_impl >
     {
         handshaking,
         chatting,
+        closing,
     } state_ = handshaking;
 
     enum
