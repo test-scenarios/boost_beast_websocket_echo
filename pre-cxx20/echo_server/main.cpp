@@ -1,9 +1,10 @@
-#include "config.hpp"
 #include "app.hpp"
+#include "config.hpp"
 
 #include <iostream>
 
-int main()
+int
+main()
 {
     using namespace project;
 
@@ -16,7 +17,7 @@ int main()
     {
         ioc.run();
     }
-    catch(std::exception& e)
+    catch (std::exception &e)
     {
         std::cout << "program bombed: " << e.what();
     }
