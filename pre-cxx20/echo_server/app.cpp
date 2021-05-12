@@ -3,7 +3,7 @@
 #include <iostream>
 
 namespace project {
-app::app(net::executor exec)
+app::app(net::any_io_executor exec)
 : exec_(exec)
 , signals_(exec, SIGINT, SIGHUP)
 , server_(exec)

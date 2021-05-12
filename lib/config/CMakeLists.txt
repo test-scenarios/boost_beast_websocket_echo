@@ -15,13 +15,14 @@ file(GLOB_RECURSE hpp_files
         "*.hpp")
 
 set(maybe_interface)
-if (${cpp_files})
+if (NOT "${cpp_files}" STREQUAL "")
     add_library(${PROJECT_NAME} ${cpp_files} ${hpp_files})
     set(maybe_interface PUBLIC)
 else ()
     set(maybe_interface INTERFACE)
     add_library(${PROJECT_NAME} INTERFACE)
 endif ()
+message(STATUS "[lib] ${PROJECT_NAME} is ${maybe_interface}")
 
 target_include_directories(${PROJECT_NAME} ${maybe_interface}
         $<BUILD_INTERFACE:${libs_src_dir}>
@@ -30,7 +31,8 @@ target_include_directories(${PROJECT_NAME} ${maybe_interface}
 target_link_libraries(${PROJECT_NAME} ${maybe_interface} Boost::system Threads::Threads)
 target_compile_definitions(${PROJECT_NAME} ${maybe_interface}
         "BOOST_ASIO_NO_DEPRECATED=1"
-        "BOOST_ASIO_DISABLE_CONCEPTS=1")
+        "BOOST_ASIO_DISABLE_CONCEPTS=1"
+        "BOOST_ASIO_NO_TS_EXECUTORS=1")
 
 if (${ENABLE_TESTING} AND NOT "${spec_cpp_files}" STREQUAL "")
     add_executable("test_${PROJECT_NAME}" main.spec.cpp ${spec_cpp_files})

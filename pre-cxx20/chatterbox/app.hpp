@@ -9,7 +9,7 @@ namespace project {
     /// There shall be one.
     /// So no need to be owned by a shared ptr
     struct app {
-        app(net::executor exec);
+        app(net::any_io_executor exec);
 
         void run();
 
@@ -21,7 +21,7 @@ namespace project {
 
         // The application's executor.
         // In a multi-threaded application this would be a strand.
-        net::executor exec_;
+        net::any_io_executor exec_;
         net::signal_set signals_;
         connection_pool clients_;
         console console_;

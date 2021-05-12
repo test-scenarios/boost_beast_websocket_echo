@@ -12,13 +12,13 @@ struct connection_impl : std::enable_shared_from_this< connection_impl >
     using transport = net::ip::tcp::socket;
     using stream    = websocket::stream< transport >;
 
-    connection_impl(net::executor exec);
+    connection_impl(net::any_io_executor exec);
 
     auto
     local_endpoint() -> net::ip::tcp::endpoint;
 
     auto
-    get_executor() -> net::executor;
+    get_executor() -> net::any_io_executor;
 
     void
     run();

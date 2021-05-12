@@ -4,7 +4,7 @@
 
 namespace project
 {
-    connection_pool::connection_pool(net::executor exec)
+    connection_pool::connection_pool(net::any_io_executor exec)
     : timer_(exec)
     {
     }

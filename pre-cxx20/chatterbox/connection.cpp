@@ -9,7 +9,7 @@ namespace project
         const auto server_endpoint = net::ip::tcp::endpoint(net::ip::address_v4::loopback(), 4321);
     }
 
-    connection_impl::connection_impl(net::executor exec)
+    connection_impl::connection_impl(net::any_io_executor exec)
     : stream_(net::ip::tcp::socket(exec))
     , delay_timer_(exec)
     {
@@ -20,7 +20,7 @@ namespace project
         stream_.next_layer().bind(ep);
     }
 
-    auto connection_impl::get_executor() -> net::executor { return stream_.get_executor(); }
+    auto connection_impl::get_executor() -> net::any_io_executor { return stream_.get_executor(); }
 
     auto connection_impl::local_endpoint() -> net::ip::tcp::endpoint { return stream_.next_layer().local_endpoint(); }
 

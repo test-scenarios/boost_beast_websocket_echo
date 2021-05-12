@@ -52,7 +52,7 @@ namespace project
       private:
         console *                            pconsole_;
         Executor                             exec_;
-        net::executor_work_guard< Executor > wg_;
+        net::any_io_executor_work_guard< Executor > wg_;
         Handler                              handler_;
         std::string                          rxstore_;
         error_code                           ec_;
@@ -61,12 +61,12 @@ namespace project
 
     struct console
     {
-        console(net::executor exec)
+        console(net::any_io_executor exec)
         : fdin_(exec, ::dup(STDIN_FILENO))
         {
         }
 
-        using executor_type = net::executor;
+        using executor_type = net::any_io_executor;
         executor_type
         get_executor()
         {

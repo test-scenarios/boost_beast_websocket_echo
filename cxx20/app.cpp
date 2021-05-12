@@ -2,7 +2,7 @@
 #include <iostream>
 
 namespace project {
-    app::app(net::executor exec) : exec_(exec), signals_(exec, SIGINT, SIGHUP),
+    app::app(net::any_io_executor exec) : exec_(exec), signals_(exec, SIGINT, SIGHUP),
                                    server_(exec) {}
 
     void app::handle_run() {

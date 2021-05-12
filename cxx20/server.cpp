@@ -4,7 +4,7 @@
 
 namespace project
 {
-    server::server(net::executor exec)
+    server::server(net::any_io_executor exec)
     : acceptor_(exec)
     {
         auto ep = net::ip::tcp::endpoint(net::ip::address_v4::any(), 4321);

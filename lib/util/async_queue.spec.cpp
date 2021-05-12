@@ -32,7 +32,7 @@ TEST_CASE("async_queue")
 
     auto make_handler = [&]()
     {
-        return bind_executor(e2, [&](error_code ec, std::string s) {
+        return net::bind_executor(e2, [&](error_code ec, std::string s) {
             error = ec;
             value = s;
         });

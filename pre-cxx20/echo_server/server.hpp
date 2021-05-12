@@ -34,7 +34,7 @@ struct endpoint_hasher
 
 struct server
 {
-    server(net::executor exec);
+    server(net::any_io_executor exec);
 
     void
     run();

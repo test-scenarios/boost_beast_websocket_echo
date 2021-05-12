@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 if (NOT DEFINED FUN_TIMES_BOOST_VERSION)
-    set(FUN_TIMES_BOOST_VERSION "1.74.0" CACHE STRING "Boost Version")
+    set(FUN_TIMES_BOOST_VERSION "1.76.0" CACHE STRING "Boost Version")
 endif ()
 
 include(FetchContent)
@@ -20,9 +20,7 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_CURRENT_BINARY_DIR}/dependencies/install)
 if (NOT DEFINED BOOST_ROOT)
     #    RequireBoost(PREFIX ${CMAKE_CURRENT_BINARY_DIR}/dependencies/install VERSION 1.73.0 COMPONENTS system)
     set(boost_components system thread)
-    if (FUN_TIMES_BOOST_VERSION VERSION_GREATER "1.71.0")
-        list(APPEND boost_components container)
-    endif()
+    list(APPEND boost_components container)
     RequireBoost(PREFIX "${CMAKE_CURRENT_BINARY_DIR}/dependencies/install/boost-${FUN_TIMES_BOOST_VERSION}" VERSION "${FUN_TIMES_BOOST_VERSION}"
             COMPONENTS
             ${boost_components})
@@ -68,24 +66,6 @@ BuildCmakeContent(nlohmann_jsonlib nlohmann_json
         "-DJSON_BuildTests=OFF"
         "-DJSON_Install=ON")
 
-if (FUN_TIMES_BOOST_VERSION VERSION_GREATER "1.71.0")
-
-FetchContent_Declare(boost_json_lib
-        GIT_REPOSITORY git@github.com:CPPAlliance/json.git
-        GIT_TAG 0da206074fbee99877ae82bb73afbc567e19a7b6)
-BuildCmakeContent(boost_json_lib boost_json
-        CMAKE_ARGS
-        "-DBOOST_JSON_STANDALONE=OFF"
-        "-DBOOST_JSON_BUILD_TESTS=OFF"
-        "-DBOOST_JSON_BUILD_FUZZERS=OFF"
-        "-DBOOST_JSON_BUILD_EXAMPLES=OFF"
-        "-DBOOST_JSON_BUILD_BENCHMARKS=OFF")
-
-add_compile_definitions(
-        "BOOST_ASIO_NO_DEPRECATED=1"
-        "BOOST_ASIO_DISABLE_CONCEPTS=1")
-endif()
-
 set(Boost_USE_STATIC_LIBS ON)
 find_package(Boost CONFIG REQUIRED COMPONENTS ${boost_components})
 find_package(Threads)
@@ -93,9 +73,6 @@ find_package(fmt CONFIG)
 find_package(spdlog CONFIG)
 find_package(nlohmann_json CONFIG)
 find_package(OpenSSL)
-if (FUN_TIMES_BOOST_VERSION VERSION_GREATER "1.71.0")
-find_package(boost_json)
-endif()
 add_subdirectory(lib)
 
 add_subdirectory(pre-cxx20)

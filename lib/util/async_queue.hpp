@@ -63,7 +63,7 @@ namespace beast_fun_times::util
     };
 
     template < class T >
-    using async_queue = basic_async_queue< T, net::executor >;
+    using async_queue = basic_async_queue< T, net::any_io_executor >;
 
 }   // namespace beast_fun_times::util
 
