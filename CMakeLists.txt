@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 if (NOT DEFINED FUN_TIMES_BOOST_VERSION)
-    set(FUN_TIMES_BOOST_VERSION "1.76.0" CACHE STRING "Boost Version")
+    set(FUN_TIMES_BOOST_VERSION "1.77.0" CACHE STRING "Boost Version")
 endif ()
 
 include(FetchContent)
